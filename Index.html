@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Timetable Pro - Multi-Agent Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #4338ca; --primary-hover: #3730a3; --bg: #f8fafc; --surface: #ffffff;
+      --text-main: #0f172a; --text-muted: #64748b; --border: #e2e8f0; --success: #059669;
+      --danger: #dc2626; --warning: #d97706; --lab-bg: #fef9c3; --lab-border: #fde047;
+      --lab-text: #854d0e;
+      --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: var(--bg); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; flex-direction: row; }
+    
+    .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; z-index: 20; box-shadow: var(--shadow-sm); flex-shrink: 0; overflow-y: auto;}
+    .brand { font-size: 20px; font-weight: 800; color: var(--primary); margin-bottom: 24px; letter-spacing: -0.5px; padding-left: 12px;}
+    
+    .sidebar-section { margin-bottom: 12px; }
+    .sidebar-header { font-size: 13px; font-weight: 700; color: var(--text-main); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; background: #f1f5f9; }
+    .sidebar-header:hover { background: #e2e8f0; }
+    .sidebar-menu { display: none; flex-direction: column; padding: 8px 0 0 12px; }
+    .sidebar-menu.open { display: flex; }
+    
+    .nav-link { padding: 10px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; font-weight: 500; margin-bottom: 4px; transition: all 0.2s ease; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: space-between;}
+    .nav-link:hover { background: #f8fafc; color: var(--primary);}
+    .nav-link.active { background: #e0e7ff; color: var(--primary); font-weight: 700;}
+    .nav-link.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 32px 40px; position: relative; background: var(--bg); z-index: 10;}
+    .page { display: none; animation: fadeIn 0.3s ease-out; flex-direction: column; height: auto; min-height: 100%; padding-bottom: 60px; }
+    .page.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; flex-wrap: wrap; gap: 16px;}
+    .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; color: var(--text-main);}
+    .header p { color: var(--text-muted); font-size: 14px; font-weight: 500;}
+
+    .search-bar { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; background: white; outline: none; transition: 0.2s; box-shadow: var(--shadow-sm);}
+    .search-bar:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
+    
+    select.filter-select { padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; font-weight: 600; background: white; color: var(--text-main); cursor: pointer; min-width: 250px;}
+
+    .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: var(--shadow-sm); text-align: center; }
+    .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text-main); }
+    
+    .upload-zone { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 30px 16px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+    .upload-zone:hover { border-color: var(--primary); background: #f1f5f9; }
+    .upload-zone.active { border-color: var(--success); background: #ecfdf5; border-style: solid; }
+
+    .btn-primary { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm);}
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); filter: brightness(1.1); }
+    .btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-outline { background: white; color: var(--text-main); border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm);}
+
+    input[type="number"] { width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; background: #f8fafc; }
+    
+    .zoom-wrapper { width: 100%; overflow-x: auto; transform-origin: top left; transition: transform 0.2s ease;}
+    .table-container { width: 100%; overflow-x: visible; border: 1px solid var(--border); border-radius: 16px; background: white; margin-bottom: 32px; box-shadow: var(--shadow-sm); display: block;}
+    
+    table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: center; background: white; }
+    th { background: #f8fafc; padding: 14px 10px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-transform: uppercase; }
+    td { padding: 12px 8px; font-size: 13px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); vertical-align: middle; }
+    
+    .slot-card { font-weight: 600; line-height: 1.4; padding: 8px; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); color: var(--text-main); transition: all 0.2s;}
+    .slot-card-lab { background: var(--lab-bg); color: var(--lab-text); border: 1px solid var(--lab-border); }
+    .slot-card-split { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; font-size: 11px; }
+    .slot-card-hidden { background: #f1f5f9; color: #94a3b8; border: 1px dashed #cbd5e1; font-size: 11px; display: flex; align-items: center; justify-content: center; height: 100%; min-height: 60px;}
+    .lunch-cell { font-weight: 800; color: #94a3b8; letter-spacing: 1.5px; background: #f8fafc; font-size: 12px;}
+    .locked-card { border: 2px solid #059669 !important; background-color: #ecfdf5 !important; position: relative; }
+    
+    /* Stats & Diagnostics */
+    .stat-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: center; }
+    .stat-card-value { font-size: 26px; font-weight: 800; color: var(--primary); line-height: 1; margin-bottom: 4px; }
+    .stat-card-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .diag-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .diag-table th, .diag-table td { border-bottom: 1px solid var(--border); padding: 12px; font-size: 14px; }
+    .diag-table th { background: #f1f5f9; font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 12px;}
+
+    .loader-container { display: none; text-align: center; padding: 80px; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); z-index: 9999;}
+    .spinner { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Native Print-to-PDF Styles */
+    @media print {
+        body * { visibility: hidden; }
+        #native-print-area, #native-print-area * { visibility: visible; }
+        #native-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        .table-container { box-shadow: none !important; border: 1px solid #cbd5e1 !important; page-break-inside: avoid; }
+        .slot-card { border: 1px solid #94a3b8 !important; }
+        @page { size: A3 landscape; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">Multi-Agent AI</div>
+    <div class="nav-link active" onclick="navigate('dashboard')" id="nav-dashboard">⚙️ Engine Setup</div>
+    
+    <!-- Applied Science Dept -->
+    <div class="sidebar-section">
+        <div class="sidebar-header disabled-group" id="header-AS" onclick="toggleMenu('menu-AS')">🧪 Applied Science <span>▼</span></div>
+        <div class="sidebar-menu" id="menu-AS">
+            <div class="nav-link" onclick="navigate('batch', 'AS')">🎓 Batch TT</div>
+            <div class="nav-link" onclick="navigate('room', 'AS')">🏛️ Theory Rooms</div>
+            <div class="nav-link" onclick="navigate('lab', 'AS')">🔬 Labs</div>
+            <div class="nav-link" onclick="navigate('faculty', 'AS')">👨‍🏫 Faculty TT</div>
+            <div class="nav-link" onclick="navigate('leave', 'AS')" style="color:var(--primary); font-weight:700;">🔄 Leave Config</div>
+            <div class="nav-link" onclick="navigate('report', 'AS')" style="color:var(--danger); font-weight:700;">📊 Diagnostics</div>
+        </div>
+    </div>
+
+    <!-- CSE Dept -->
+    <div class="sidebar-section">
+        <div class="sidebar-header disabled-group" id="header-CSE" onclick="toggleMenu('menu-CSE')">💻 Comp. Science <span>▼</span></div>
+        <div class="sidebar-menu" id="menu-CSE">
+            <div class="nav-link" onclick="navigate('batch', 'CSE')">🎓 Batch TT</div>
+            <div class="nav-link" onclick="navigate('room', 'CSE')">🏛️ Theory Rooms</div>
+            <div class="nav-link" onclick="navigate('lab', 'CSE')">🔬 Labs</div>
+            <div class="nav-link" onclick="navigate('faculty', 'CSE')">👨‍🏫 Faculty TT</div>
+            <div class="nav-link" onclick="navigate('leave', 'CSE')" style="color:var(--primary); font-weight:700;">🔄 Leave Config</div>
+            <div class="nav-link" onclick="navigate('report', 'CSE')" style="color:var(--danger); font-weight:700;">📊 Diagnostics</div>
+        </div>
+    </div>
+
+    <!-- ETE / EE Dept -->
+    <div class="sidebar-section">
+        <div class="sidebar-header disabled-group" id="header-ETE" onclick="toggleMenu('menu-ETE')">📡 ETE / EE <span>▼</span></div>
+        <div class="sidebar-menu" id="menu-ETE">
+            <div class="nav-link" onclick="navigate('batch', 'ETE')">🎓 Batch TT</div>
+            <div class="nav-link" onclick="navigate('lab', 'ETE')">🔌 Elect. Rooms & Labs</div>
+            <div class="nav-link" onclick="navigate('faculty', 'ETE')">👨‍🏫 Faculty TT</div>
+            <div class="nav-link" onclick="navigate('leave', 'ETE')" style="color:var(--primary); font-weight:700;">🔄 Leave Config</div>
+            <div class="nav-link" onclick="navigate('report', 'ETE')" style="color:var(--danger); font-weight:700;">📊 Diagnostics</div>
+        </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    
+    <!-- Setup Dashboard -->
+    <div id="page-dashboard" class="page active">
+      <div class="header">
+        <div>
+          <h1>Co-Scheduling Constraint AI</h1>
+          <p>Physics/Chem Co-Teaching, EE/ETE Combination Splits & Filtered Faculty Workloads.</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn-outline" onclick="loadFromDriveHandler()">📂 Load Session</button>
+            <button class="btn-outline" id="btnSaveDrive" onclick="saveToDriveHandler()" style="display:none; color: var(--primary);">💾 Save to Drive</button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <h3>1. CSE Department</h3>
+          <input type="file" id="loadSheetCSE" style="display: none;" onchange="handleFileSelect(event, 'CSE')">
+          <div class="upload-zone" id="zoneCSE" onclick="document.getElementById('loadSheetCSE').click()">
+            <div style="font-size: 32px; margin-bottom: 12px;">💻</div>
+            <div style="font-weight: 700; font-size:14px;" id="titleCSE">Upload CSE Sheet</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>2. ETE / EE Dept</h3>
+          <input type="file" id="loadSheetETE" style="display: none;" onchange="handleFileSelect(event, 'ETE')">
+          <div class="upload-zone" id="zoneETE" onclick="document.getElementById('loadSheetETE').click()">
+            <div style="font-size: 32px; margin-bottom: 12px;">📡</div>
+            <div style="font-weight: 700; font-size:14px;" id="titleETE">Upload ETE/EE Sheet</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>3. Applied Science</h3>
+          <input type="file" id="loadSheetAS" style="display: none;" onchange="handleFileSelect(event, 'AS')">
+          <div class="upload-zone" id="zoneAS" onclick="document.getElementById('loadSheetAS').click()">
+            <div style="font-size: 32px; margin-bottom: 12px;">🧪</div>
+            <div style="font-weight: 700; font-size:14px;" id="titleAS">Upload AS Sheet</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 24px;">
+          <h3 style="font-size: 16px; margin-bottom: 20px;">Detailed Infrastructure Setup</h3>
+          
+          <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 8px;">Applied Science Constraints</h4>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;">
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Theory Rooms</label><input type="number" id="cfgASRooms" value="10"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Comp Lab (Half)</label><input type="number" id="cfgASCompHalf" value="3"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Physics (Full)</label><input type="number" id="cfgASPhysicsFull" value="3"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Chemistry (Full)</label><input type="number" id="cfgASChemFull" value="3"></div>
+          </div>
+
+          <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 8px;">CSE Constraints</h4>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;">
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Theory Rooms</label><input type="number" id="cfgCSERooms" value="10"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Comp Lab (Half)</label><input type="number" id="cfgCSECompHalf" value="5"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Comp Lab (Full)</label><input type="number" id="cfgCSECompFull" value="5"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Electrical Lab (Half)</label><input type="number" id="cfgCSEElecHalf" value="2"></div>
+          </div>
+
+          <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 8px;">ETE / EE & Global Constraint Logic</h4>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--text-muted);">Electrical Labs (Combined)</label><input type="number" id="cfgETEElec" value="5"></div>
+            <div style="flex:1; min-width: 120px;"><label style="font-size:11px; font-weight:700; color:var(--danger);">Max Load/Day (All)</label><input type="number" id="cfgMaxLoad" value="6"></div>
+          </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 16px;">
+        <button class="btn-danger" id="btnReset" style="display: none;" onclick="resetSystem()">🗑️ Clear</button>
+        <button class="btn-primary" id="btnRerollAll" style="display:none; background: #2563eb;" onclick="startRerollAll()">🎲 Recalculate Min-Conflicts</button>
+        <button class="btn-primary" id="btnGenerate" style="padding: 12px 32px;" onclick="startGeneration()">Solve TT AI ✨</button>
+      </div>
+      <p id="systemMessage" style="margin-top: 20px; font-weight: 700; text-align: right;"></p>
+    </div>
+
+    <!-- Universal Viewer Page -->
+    <div id="page-viewer" class="page">
+      <div class="header">
+        <div>
+          <h1 id="viewerTitle">Data View</h1>
+          <p>Global Omni-Search and Dropdown Filters active.</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="exportScope" class="filter-select" style="min-width: 140px; padding: 8px 12px;">
+                <option value="current">Current View</option>
+                <option value="all_batches">All Batches</option>
+                <option value="all_faculties">All Faculties</option>
+            </select>
+            <button class="btn-outline" onclick="exportPDF()">📄 PDF</button>
+            <button class="btn-outline" onclick="exportExcel()">📊 Excel</button>
+            <div style="border-left: 1px solid var(--border); margin: 0 4px; height: 24px;"></div>
+            <button class="btn-outline" onclick="changeZoom(0.1)">🔍 ➕</button>
+            <button class="btn-outline" onclick="changeZoom(-0.1)">🔍 ➖</button>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+          <div style="flex: 1; max-width: 300px;">
+              <select id="entityDropdown" class="filter-select" onchange="handleDropdownSelection()">
+                  <option value="ALL">All Entities in View</option>
+              </select>
+          </div>
+          <div style="flex: 1; max-width: 400px;">
+              <input type="text" id="globalSearch" class="search-bar" placeholder="Or Search Faculty Name, Code, Batch ID..." onkeyup="renderTables(false)">
+          </div>
+      </div>
+      
+      <div id="tableTarget" class="zoom-wrapper"></div>
+    </div>
+
+    <!-- Leave Substitution Page -->
+    <div id="page-leave" class="page">
+        <div class="header">
+          <div><h1 id="leaveTitle">Leave Substitution</h1><p>Override specific slots or a full day for an absent faculty member.</p></div>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 24px; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; max-width: 300px;">
+                    <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">1. SELECT ABSENT FACULTY</label>
+                    <select id="leaveAbsentFaculty"></select>
+                </div>
+                <div style="flex: 1; max-width: 300px;">
+                    <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;">2. BULK SUBSTITUTE (Optional)</label>
+                    <select id="leaveBulkSubstitute"></select>
+                </div>
+                <button class="btn-primary" onclick="applyBulkLeave()">Apply Bulk Substitute</button>
+            </div>
+        </div>
+        
+        <div id="leaveTarget" class="zoom-wrapper"></div>
+    </div>
+
+    <!-- Reports & Diagnostics Page -->
+    <div id="page-reports" class="page">
+      <div class="header">
+        <div><h1 id="reportTitle">Diagnostics</h1><p>Algorithmic reports and spatial availability metrics.</p></div>
+      </div>
+      
+      <div id="reportUnassignedTarget" style="margin-bottom: 40px;"></div>
+
+      <h3 style="color: var(--primary); margin-bottom: 16px; font-size: 18px;">Resource Availability (Vacant Slots)</h3>
+      <div id="reportVacantTarget" style="margin-bottom: 40px;"></div>
+
+      <h3 style="color: var(--text-main); margin-bottom: 16px; font-size: 18px;">Department Workload Analyzer</h3>
+      <div id="reportWorkloadTarget" class="table-container" style="padding: 0;"></div>
+    </div>
+
+    <div class="loader-container" id="loader">
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+          <div class="spinner"></div>
+          <h2 style="color: var(--text-main); margin-bottom: 12px; font-weight: 800; font-size: 24px;" id="loaderTitle">Executing CSP Optimization...</h2>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pendingUploadData = { CSE: [], ETE: [], AS: [] }; 
+    let globalData = null; 
+    let activeView = { type: '', dept: '' };
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    let lockedPlacements = {}; 
+    let globalTableZoom = 1.0;
+
+    function saveToDriveHandler() {
+      if (!globalData) {
+        alert("No timetable generated to save!");
+        return;
+      }
+      
+      let btn = document.getElementById('btnSaveDrive');
+      let originalText = btn.innerText;
+      btn.innerText = "⏳ Saving...";
+      btn.style.pointerEvents = "none";
+
+      google.script.run
+        .withSuccessHandler(res => {
+          alert(res.message);
+          btn.innerText = originalText;
+          btn.style.pointerEvents = "auto";
+        })
+        .withFailureHandler(err => {
+          alert("Drive Error: " + err.message);
+          btn.innerText = originalText;
+          btn.style.pointerEvents = "auto";
+        })
+        .saveScheduleToDrive(globalData);
+    }
+
+    function loadFromDriveHandler() {
+      let loader = document.getElementById('loader');
+      let title = document.getElementById('loaderTitle');
+      
+      loader.style.display = 'block';
+      title.innerText = "Searching Drive for Timetable Backup...";
+
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            globalData = res.data;
+            document.getElementById('btnGenerate').style.display = "none";
+            document.getElementById('btnRerollAll').style.display = 'inline-block';
+            document.getElementById('btnReset').style.display = 'inline-block';
+            document.getElementById('btnSaveDrive').style.display = 'inline-flex';
+            
+            document.querySelectorAll('.disabled-group').forEach(el => { 
+                el.style.pointerEvents = 'auto'; 
+                el.style.opacity = '1'; 
+            });
+            
+            let msg = document.getElementById('systemMessage');
+            msg.innerText = res.message;
+            msg.style.color = "var(--success)";
+            
+            navigate('dashboard', '');
+          } else {
+            alert(res.message);
+          }
+          loader.style.display = 'none';
+          title.innerText = "Executing CSP Optimization...";
+        })
+        .withFailureHandler(err => {
+          alert("Drive Load Error: " + err.message);
+          loader.style.display = 'none';
+          title.innerText = "Executing CSP Optimization...";
+        })
+        .loadScheduleFromDrive();
+    }
+
+    function changeZoom(delta) {
+        globalTableZoom += delta;
+        if(globalTableZoom < 0.5) globalTableZoom = 0.5; if(globalTableZoom > 2.0) globalTableZoom = 2.0;
+        document.querySelectorAll('.zoom-wrapper').forEach(el => { el.style.transform = `scale(${globalTableZoom})`; el.style.width = `${100 / globalTableZoom}%`; });
+    }
+
+    function toggleMenu(menuId) {
+        let menu = document.getElementById(menuId);
+        menu.classList.toggle('open');
+    }
+
+    function handleFileSelect(event, deptCode) {
+      const file = event.target.files[0]; if (!file) return;
+      document.getElementById(`title${deptCode}`).innerText = `Reading...`;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+          let parsedRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+          pendingUploadData[deptCode] = parsedRows.map(row => ({ ...row, _dept: deptCode })); 
+          document.getElementById(`title${deptCode}`).innerText = `${file.name} Ready!`;
+          document.getElementById(`zone${deptCode}`).classList.add('active');
+        } catch (err) { alert(`Upload Failed: ` + err.message); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function startGeneration() {
+      let mergedData = [...pendingUploadData.CSE, ...pendingUploadData.ETE, ...pendingUploadData.AS];
+      if(mergedData.length === 0) { alert("Please upload a LoadSheet."); return; }
+      runAlgorithm(mergedData, []);
+    }
+
+    function startRerollAll() { runAlgorithm([...pendingUploadData.CSE, ...pendingUploadData.ETE, ...pendingUploadData.AS], []); }
+
+    function runAlgorithm(data, lockedArr) {
+      document.getElementById('loader').style.display = 'block';
+      const config = {
+        asRooms: Array.from({length: parseInt(document.getElementById('cfgASRooms').value)}, (_, i) => `AS-Room-${i+1}`),
+        asCompHalf: Array.from({length: parseInt(document.getElementById('cfgASCompHalf').value)}, (_, i) => `AS-CompLab-Half-${i+1}`),
+        asPhysicsFull: Array.from({length: parseInt(document.getElementById('cfgASPhysicsFull').value)}, (_, i) => `Physics-Lab-${i+1}`),
+        asChemFull: Array.from({length: parseInt(document.getElementById('cfgASChemFull').value)}, (_, i) => `Chem-Lab-${i+1}`),
+        
+        cseRooms: Array.from({length: parseInt(document.getElementById('cfgCSERooms').value)}, (_, i) => `CSE-Room-${i+1}`),
+        cseCompHalf: Array.from({length: parseInt(document.getElementById('cfgCSECompHalf').value)}, (_, i) => `CSE-CompLab-Half-${i+1}`),
+        cseCompFull: Array.from({length: parseInt(document.getElementById('cfgCSECompFull').value)}, (_, i) => `CSE-CompLab-Full-${i+1}`),
+        cseElecHalf: Array.from({length: parseInt(document.getElementById('cfgCSEElecHalf').value)}, (_, i) => `CSE-ElecLab-Half-${i+1}`),
+
+        eteElec: Array.from({length: parseInt(document.getElementById('cfgETEElec').value)}, (_, i) => `Electrical-Room/Lab-${i+1}`),
+        
+        maxLoad: parseInt(document.getElementById('cfgMaxLoad').value) || 6,
+        batches: [] 
+      };
+
+      google.script.run
+        .withSuccessHandler(res => onSuccess(res))
+        .withFailureHandler(err => { alert("Error: " + err.message); document.getElementById('loader').style.display='none'; })
+        .generateSchedule(data, config, lockedArr);
+    }
+
+    function onSuccess(res) {
+      document.getElementById('loader').style.display = 'none';
+      if(!res.success) { alert(res.message); return; }
+      globalData = res;
+      document.getElementById('btnGenerate').style.display = "none";
+      document.getElementById('btnRerollAll').style.display = 'inline-block';
+      document.getElementById('btnReset').style.display = 'inline-block';
+      document.getElementById('btnSaveDrive').style.display = 'inline-flex';
+      
+      document.querySelectorAll('.disabled-group').forEach(el => { el.style.pointerEvents = 'auto'; el.style.opacity = '1'; });
+      
+      let msg = document.getElementById('systemMessage');
+      msg.innerText = globalData.message;
+      msg.style.color = globalData.isWarning ? "var(--warning)" : "var(--success)";
+
+      navigate('dashboard', '');
+    }
+
+    function resetSystem() { location.reload(); }
+
+    function navigate(viewType, deptCode) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        if(event) event.currentTarget.classList.add('active');
+
+        activeView = { type: viewType, dept: deptCode };
+        
+        if(viewType === 'dashboard') { document.getElementById('page-dashboard').classList.add('active'); return; }
+        
+        if(viewType === 'report') {
+            document.getElementById('page-reports').classList.add('active');
+            document.getElementById('reportTitle').innerText = `${deptCode} Diagnostics & Workloads`;
+            renderReports(deptCode);
+            return;
+        }
+
+        if(viewType === 'leave') {
+            document.getElementById('page-leave').classList.add('active');
+            document.getElementById('leaveTitle').innerText = `${deptCode} Leave Substitution`;
+            populateLeaveDropdowns(deptCode);
+            renderLeaveTable(); 
+            return;
+        }
+
+        document.getElementById('page-viewer').classList.add('active');
+        let titles = { 'batch': '🎓 Batches', 'room': '🏛️ Theory Rooms', 'lab': '🔬 Labs', 'faculty': '👨‍🏫 Faculty' };
+        if(deptCode === 'ETE' && viewType === 'lab') titles['lab'] = '🔌 Elect. Rooms & Labs';
+        
+        document.getElementById('viewerTitle').innerText = `${deptCode} - ${titles[viewType]}`;
+        
+        document.getElementById('globalSearch').value = ""; 
+        populateDropdown();
+        renderTables(true);
+    }
+
+    function populateDropdown() {
+        let entities = getEntitiesForView();
+        let sel = document.getElementById('entityDropdown');
+        sel.innerHTML = `<option value="ALL">All Entities in View</option>`;
+        entities.forEach(e => {
+            let opt = document.createElement('option');
+            opt.value = e; opt.innerText = e;
+            sel.appendChild(opt);
+        });
+    }
+
+    function handleDropdownSelection() {
+        document.getElementById('globalSearch').value = ""; 
+        renderTables(true);
+    }
+
+    function getEntitiesForView() {
+        if(!globalData) return [];
+        let entities = new Set();
+        const grid = globalData.grid;
+        
+        if(activeView.type === 'faculty') {
+            Object.keys(globalData.facultyDeptMap).forEach(f => {
+                if (globalData.facultyDeptMap[f].includes(activeView.dept)) entities.add(f);
+            });
+            return Array.from(entities).sort();
+        }
+        
+        days.forEach(d => grid[d].forEach(slot => {
+            if(activeView.type === 'batch') {
+                Object.keys(slot.batches).forEach(k => { 
+                    if(k.includes(`[${activeView.dept}]`) || (activeView.dept==='ETE' && k.includes('EE-'))) entities.add(k);
+                });
+            }
+            if(activeView.type === 'room') {
+                let area = activeView.dept === 'AS' ? 'asRooms' : 'cseRooms';
+                Object.keys(slot[area] || {}).forEach(k => entities.add(k));
+            }
+            if(activeView.type === 'lab') {
+                if(activeView.dept === 'AS') { 
+                    Object.keys(slot.physicsLabs || {}).forEach(k=>entities.add(k)); Object.keys(slot.chemLabs || {}).forEach(k=>entities.add(k)); 
+                    Object.keys(slot.asCompHalf || {}).forEach(k=>entities.add(k)); Object.keys(slot.asPhysicsFull || {}).forEach(k=>entities.add(k)); Object.keys(slot.asChemFull || {}).forEach(k=>entities.add(k));
+                }
+                if(activeView.dept === 'CSE') { 
+                    Object.keys(slot.computerFullLabs || {}).forEach(k=>entities.add(k)); Object.keys(slot.computerHalfLabs || {}).forEach(k=>entities.add(k)); 
+                    Object.keys(slot.cseCompHalf || {}).forEach(k=>entities.add(k)); Object.keys(slot.cseCompFull || {}).forEach(k=>entities.add(k)); Object.keys(slot.cseElecHalf || {}).forEach(k=>entities.add(k));
+                }
+                if(activeView.dept === 'ETE') { 
+                    Object.keys(slot.electricalLabs || {}).forEach(k=>entities.add(k)); Object.keys(slot.eteElec || {}).forEach(k=>entities.add(k)); 
+                }
+            }
+        }));
+        return Array.from(entities).sort();
+    }
+
+    // ----------------------------------------------------
+    // EXPORT LOGIC - NATIVE BROWSER PRINT FIX
+    // ----------------------------------------------------
+    function getEntitiesForExportScope(scope) {
+        if (scope === 'current') {
+            let selected = document.getElementById('entityDropdown').value;
+            return selected === 'ALL' ? getEntitiesForView() : [selected];
+        } else if (scope === 'all_batches') {
+            let entities = new Set();
+            days.forEach(d => globalData.grid[d].forEach(s => Object.keys(s.batches).forEach(k => entities.add(k))));
+            return Array.from(entities).sort();
+        } else if (scope === 'all_faculties') {
+            return Object.keys(globalData.facultyDeptMap).sort();
+        }
+        return [];
+    }
+
+    function exportPDF() {
+        if(!globalData) return alert("No data generated yet!");
+        
+        let scope = document.getElementById('exportScope').value;
+        let vType = scope === 'all_batches' ? 'batch' : (scope === 'all_faculties' ? 'faculty' : activeView.type);
+        let entities = getEntitiesForExportScope(scope);
+
+        if(entities.length === 0) return alert("No data to export.");
+
+        // 1. Create or find the dedicated print container
+        let printArea = document.getElementById('native-print-area');
+        if (!printArea) {
+            printArea = document.createElement('div');
+            printArea.id = 'native-print-area';
+            document.body.appendChild(printArea);
+        }
+
+        // 2. Build the HTML for all requested entities
+        let combinedHtml = `<h2 style="text-align: center; color: black; margin-bottom: 24px; font-weight: 800;">Smart Timetable Pro - ${scope.toUpperCase()}</h2>`;
+        
+        entities.forEach(ent => {
+            let tHtml = buildTableHTML(vType, ent, "");
+            if (tHtml) {
+                // page-break-after ensures each timetable gets its own page in the PDF
+                combinedHtml += `<div style="page-break-after: always; margin-bottom: 40px;">${tHtml}</div>`;
+            }
+        });
+
+        // 3. Inject the HTML and trigger the browser's native PDF generator
+        printArea.innerHTML = combinedHtml;
+        
+        // Slight delay ensures the DOM is fully painted before the print dialog opens
+        setTimeout(() => {
+            window.print();
+            // 4. Clean up the print area immediately after the dialog closes
+            printArea.innerHTML = '';
+        }, 300);
+    }
+
+    async function exportExcel() {
+        try {
+            if(!globalData) return alert("No data generated yet!");
+            
+            let scope = document.getElementById('exportScope').value;
+            let vType = scope === 'all_batches' ? 'batch' : (scope === 'all_faculties' ? 'faculty' : activeView.type);
+            let entities = getEntitiesForExportScope(scope);
+
+            if(entities.length === 0) return alert("No data to export.");
+
+            document.getElementById('loaderTitle').innerText = "Compiling Excel Workbook... Please wait.";
+            document.getElementById('loader').style.display = 'block';
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            let wb = XLSX.utils.book_new();
+
+            entities.forEach((ent) => {
+                let ws_data = [
+                    [`Timetable for: ${ent}`],
+                    ["Day", ...globalData.timeSlots]
+                ];
+
+                days.forEach(day => {
+                    let row = [day];
+                    for(let s = 0; s < 9; s++) {
+                        if(vType === 'batch' && (s === 3 || s === 4)) {
+                            let otherSlot = s === 3 ? 4 : 3;
+                            let otherCellData = getTaskForCell(vType, ent, day, otherSlot);
+                            if(otherCellData || s === 4) { row.push("LUNCH"); continue; }
+                        }
+                        
+                        let cellData = getTaskForCell(vType, ent, day, s);
+                        if (!cellData) { row.push(""); continue; }
+                        
+                        const formatTask = (t, prefix="") => {
+                             if(!t) return "";
+                             let f = t.faculty || `${t.facultyG1} / ${t.facultyG2}`;
+                             let b = Array.isArray(t.batch) ? t.batch.map(x=>x.replace(/\[.*?\] /g, '')).join(', ') : t.batch;
+                             return `${prefix}${t.subject} \nBatches: ${b} \nFac: ${f} \nLoc: ${t.assignedLoc || ''} ${t.assignedLoc2 || ''}`.replace(/null/g, '').trim();
+                        };
+
+                        if(cellData.split) {
+                            row.push(formatTask(cellData.g1, "G1: ") + "\n\n" + formatTask(cellData.g2, "G2: "));
+                        } else {
+                            row.push(formatTask(cellData.task));
+                        }
+                    }
+                    ws_data.push(row);
+                });
+
+                let ws = XLSX.utils.aoa_to_sheet(ws_data);
+                ws['!cols'] = [{wch: 12}];
+                for(let i=0; i<9; i++) ws['!cols'].push({wch: 25});
+
+                // Stripping illegal characters to stop Google scripts/Excel from instantly rejecting the string
+                let rawName = ent.replace(/[^\w\s-]/gi, '').trim();
+                let sheetName = rawName.substring(0, 25); 
+                if(!sheetName) sheetName = `Sheet`;
+                
+                let finalSheetName = sheetName;
+                let counter = 1;
+                while(wb.SheetNames.includes(finalSheetName)) {
+                    finalSheetName = sheetName + "_" + counter;
+                    counter++;
+                }
+                
+                XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+            });
+
+            // Generating the native base64 Blob URI
+            let wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+            let url = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + wbout;
+            let fileName = `Timetable_${scope.toUpperCase()}.xlsx`;
+
+            // Attempt seamless background download
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Google Apps Sandbox typically blocks background script triggers.
+            // This explicit fallback modal will be pushed so the user can manually click it and force download.
+            let fallbackBtn = document.createElement('div');
+            fallbackBtn.innerHTML = `
+                <div style="position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 16px 24px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 700; text-align: center; border: 2px solid white;">
+                    Excel File Generated Successfully!<br>
+                    <a href="${url}" download="${fileName}" style="background: white; color: #059669; padding: 10px 16px; border-radius: 6px; text-decoration: none; display: inline-block; margin-top: 12px; font-weight: 800; cursor: pointer;">Click Here to Download Excel File</a>
+                    <div style="font-size: 11px; margin-top: 12px; font-weight: 500; cursor: pointer; opacity: 0.8;" onclick="this.parentElement.remove()">Dismiss</div>
+                </div>
+            `;
+            document.body.appendChild(fallbackBtn);
+
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('loaderTitle').innerText = "Executing CSP Optimization...";
+            
+        } catch (error) {
+            console.error(error);
+            alert("Excel Export Error: " + error.message);
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    // ----------------------------------------------------
+    // RENDERING LOGIC
+    // ----------------------------------------------------
+    function renderTables(useDropdown = false) {
+        if(!globalData) return;
+        let allEntities = getEntitiesForView();
+        let entitiesToRender = [];
+
+        if (useDropdown) {
+            let selected = document.getElementById('entityDropdown').value;
+            entitiesToRender = selected === 'ALL' ? allEntities : [selected];
+        } else {
+            document.getElementById('entityDropdown').value = 'ALL'; 
+            let query = document.getElementById('globalSearch').value.toLowerCase();
+            entitiesToRender = query ? allEntities.filter(e => e.toLowerCase().includes(query)) : allEntities;
+        }
+        
+        let html = '';
+        entitiesToRender.forEach(ent => {
+            let tableHtml = buildTableHTML(activeView.type, ent, document.getElementById('globalSearch').value.toLowerCase());
+            if(tableHtml) html += tableHtml;
+        });
+        document.getElementById('tableTarget').innerHTML = html || "<p style='padding:20px; color:#64748b;'>No results found.</p>";
+    }
+
+    function extractFacultiesFromTask(t) {
+        if (Array.isArray(t.faculties)) return t.faculties;
+        let facs = [];
+        if(t.faculty) facs.push(...t.faculty.split(/[/&]/).map(f=>f.trim()));
+        if(t.facultyG1) facs.push(...t.facultyG1.split(/[/&]/).map(f=>f.trim()));
+        if(t.facultyG2) facs.push(...t.facultyG2.split(/[/&]/).map(f=>f.trim()));
+        return [...new Set(facs.filter(x=>x))];
+    }
+
+    function getTaskForCell(viewType, entityName, day, slotIndex) {
+        const grid = globalData.grid[day][slotIndex];
+        
+        if(viewType === 'batch') {
+            let b = grid.batches[entityName]; if(!b) return null;
+            if(b.ALL) return { task: b.ALL };
+            if(b.G1 || b.G2) return { split: true, g1: b.G1, g2: b.G2 };
+        }
+        if(viewType === 'room') return { task: (grid.asRooms?.[entityName] || grid.cseRooms?.[entityName]) };
+        if(viewType === 'lab') return { task: (grid.physicsLabs?.[entityName] || grid.chemLabs?.[entityName] || grid.electricalLabs?.[entityName] || grid.computerFullLabs?.[entityName] || grid.computerHalfLabs?.[entityName] || grid.asCompHalf?.[entityName] || grid.asPhysicsFull?.[entityName] || grid.asChemFull?.[entityName] || grid.cseCompHalf?.[entityName] || grid.cseCompFull?.[entityName] || grid.cseElecHalf?.[entityName] || grid.eteElec?.[entityName]) };
+        
+        if(viewType === 'faculty') {
+            let foundTask = null;
+            Object.values(grid.batches).forEach(b => {
+                ['ALL', 'G1', 'G2'].forEach(g => {
+                    let t = b[g];
+                    if(t) {
+                        let facs = extractFacultiesFromTask(t);
+                        if(facs.includes(entityName)) foundTask = t;
+                    }
+                });
+            });
+            return foundTask ? { task: foundTask } : null;
+        }
+        return null;
+    }
+
+    function renderCellHTML(cellData, viewType, day, query, entityName) {
+        if (!cellData || (!cellData.task && !cellData.split)) return `<td></td>`;
+        
+        const buildCard = (task, isSubSplit, explicitGroup) => {
+            if(!task) return '';
+            
+            if (viewType === 'faculty') {
+                let tDept = task.dept;
+                let vDept = activeView.dept;
+                let isMatch = (tDept === vDept) || (tDept === 'COMBINED-EE/ETE' && vDept === 'ETE') || (vDept === 'ETE' && tDept.includes('EE'));
+                if (!isMatch) return `<div class="slot-card-hidden">Class in ${tDept}</div>`;
+            }
+
+            let tString = JSON.stringify(task).toLowerCase();
+            if (query && !tString.includes(query) && activeView.type !== 'batch' && activeView.type !== 'faculty') return ''; 
+            
+            let isLab = task.type.includes('Lab');
+            let isLocked = lockedPlacements[task.id] ? true : false;
+            let lockClass = isLocked ? 'locked-card' : '';
+            let sClass = task.type === 'LabSplit' ? 'slot-card-split' : (isLab ? 'slot-card-lab' : '');
+            
+            let displayBatch = Array.isArray(task.batch) ? task.batch.map(b => b.replace(/\[.*?\] /g, '')).join(', ') : task.batch;
+            
+            let groupLabel = explicitGroup || (task.subgroup !== 'ALL' ? task.subgroup : '');
+            if (task.type === 'LabCoTeach') groupLabel = 'G1+G2'; 
+            
+            let facStr = ""; let rText = task.assignedLoc;
+            let fG1Array = task.facultyG1 ? task.facultyG1.split(/[/&]/).map(f=>f.trim()) : [];
+            let fG2Array = task.facultyG2 ? task.facultyG2.split(/[/&]/).map(f=>f.trim()) : [];
+
+            if (task.type === 'LabSplit') {
+                if (viewType === 'lab' || viewType === 'room') {
+                    if (entityName === task.assignedLoc) { explicitGroup = 'G1'; groupLabel = 'G1'; }
+                    else if (entityName === task.assignedLoc2) { explicitGroup = 'G2'; groupLabel = 'G2'; }
+                } else if (viewType === 'faculty') {
+                    if (fG1Array.includes(entityName)) { explicitGroup = 'G1'; groupLabel = 'G1'; }
+                    else if (fG2Array.includes(entityName)) { explicitGroup = 'G2'; groupLabel = 'G2'; }
+                }
+                
+                if (explicitGroup === 'G1') { facStr = task.facultyG1; rText = task.assignedLoc; }
+                else if (explicitGroup === 'G2') { facStr = task.facultyG2; rText = task.assignedLoc2 || task.assignedLoc; }
+                else { facStr = `${task.facultyG1} / ${task.facultyG2}`; rText = `${task.assignedLoc} & ${task.assignedLoc2}`; }
+            } else if (task.type === 'LabCoTeach') {
+                facStr = task.faculty || `${task.facultyG1} / ${task.facultyG2}`;
+            } else {
+                facStr = task.faculty;
+            }
+
+            let subL = groupLabel ? `<span style="color:#d97706; font-weight:800;">[${groupLabel}]</span> ` : '';
+            let html = `<b>${subL}${task.subject}</b><br><span style="font-size:11px; color:var(--text-muted);">${displayBatch}</span><br>`;
+            
+            if(viewType !== 'faculty') {
+                let facColor = task.type.includes('LabSplit') || task.type === 'LabCoTeach' ? '#0369a1' : 'var(--primary)';
+                html += `<span style="color:${facColor}; font-size:11px; font-weight:700;">${facStr}</span><br>`;
+            }
+            
+            if(viewType !== 'room' && viewType !== 'lab') {
+                html += `<div style="background:#0f172a; color:#38bdf8; padding:2px 6px; border-radius:4px; font-size:10px; display:inline-block; margin-top:4px;">📍 ${rText}</div>`;
+            }
+
+            return `<div class="slot-card ${sClass} ${lockClass}" style="cursor:pointer; ${isSubSplit?'margin-bottom:4px; font-size:11px;':''}" onclick="toggleLock('${task.id}', '${day}')">${html}</div>`;
+        };
+
+        if(cellData.split) return `<td>${buildCard(cellData.g1, true, 'G1')}${buildCard(cellData.g2, true, 'G2')}</td>`;
+        return `<td>${buildCard(cellData.task, false, null)}</td>`;
+    }
+
+    function buildTableHTML(viewType, entityName, query = "") {
+      let html = `<div class="table-container" style="page-break-inside: avoid;">
+          <h3 style="padding: 16px; background:#f8fafc; border-bottom:1px solid var(--border); color:var(--primary); margin:0; font-size:15px;">${entityName}</h3>
+          <table><thead><tr><th>Day</th>`;
+      globalData.timeSlots.forEach((time, i) => html += `<th>${i + 1}<br><span style="font-weight:500; font-size:10px;">${time}</span></th>`);
+      html += `</tr></thead><tbody>`;
+      
+      let hasData = false;
+      days.forEach(day => {
+        html += `<tr><td style="font-weight: 700;">${day}</td>`;
+        for(let s = 0; s < 9; s++) {
+           let cellData = getTaskForCell(viewType, entityName, day, s);
+           if(cellData) {
+               hasData = true;
+               html += renderCellHTML(cellData, viewType, day, query, entityName);
+           } else {
+               if (viewType === 'batch' && (s === 3 || s === 4)) {
+                   let otherSlot = s === 3 ? 4 : 3;
+                   let otherCellData = getTaskForCell(viewType, entityName, day, otherSlot);
+                   if (otherCellData || s === 4) { 
+                       html += `<td class="lunch-cell">LUNCH</td>`;
+                       continue;
+                   }
+               }
+               html += `<td></td>`;
+           }
+        }
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+      return hasData ? html : '';
+    }
+
+    function toggleLock(taskId, day) {
+        if (lockedPlacements[taskId]) delete lockedPlacements[taskId]; 
+        else lockedPlacements[taskId] = { taskId, day }; 
+        renderTables(true); 
+    }
+
+    function populateLeaveDropdowns(dept) {
+        if(!globalData) return;
+        let facMap = globalData.facultyDeptMap;
+        let deptFacs = Object.keys(facMap).filter(f => facMap[f].includes(dept)).sort();
+        let allFacs = Object.keys(facMap).sort();
+
+        let absentSel = document.getElementById('leaveAbsentFaculty');
+        let bulkSel = document.getElementById('leaveBulkSubstitute');
+        
+        absentSel.innerHTML = `<option value="">-- Select Absent Faculty --</option>`;
+        bulkSel.innerHTML = `<option value="">-- Select Global Substitute --</option>`;
+
+        deptFacs.forEach(f => { let o = document.createElement('option'); o.value = f; o.innerText = f; absentSel.appendChild(o); });
+        allFacs.forEach(f => { let o = document.createElement('option'); o.value = f; o.innerText = f; bulkSel.appendChild(o); });
+        
+        absentSel.onchange = renderLeaveTable;
+    }
+
+    function renderLeaveTable() {
+        let absentFac = document.getElementById('leaveAbsentFaculty').value;
+        if(!absentFac) { document.getElementById('leaveTarget').innerHTML = ""; return; }
+        
+        let allFacs = Object.keys(globalData.facultyDeptMap).sort();
+        let html = `<div class="table-container"><table><thead><tr><th>Day</th>`;
+        globalData.timeSlots.forEach((time, i) => html += `<th>${i + 1}<br><span style="font-weight:500; font-size:10px;">${time}</span></th>`);
+        html += `</tr></thead><tbody>`;
+
+        days.forEach(day => {
+            html += `<tr><td style="font-weight: 700;">${day}</td>`;
+            for(let s = 0; s < 9; s++) {
+                let cellData = getTaskForCell('faculty', absentFac, day, s);
+                if(cellData && cellData.task) {
+                    let task = cellData.task;
+                    let displayBatch = Array.isArray(task.batch) ? task.batch.map(b => b.replace(/\[.*?\] /g, '')).join(', ') : task.batch;
+                    let cellHtml = `<div class="slot-card" style="background:#fee2e2; border-color:#fca5a5;">
+                        <b>${task.subject}</b><br><span style="font-size:10px;">${displayBatch}</span><br>
+                        <select onchange="applySingleSub('${day}', ${s}, '${task.id}', this.value)" style="margin-top:6px; font-size:11px; padding:4px;">
+                            <option value="">-- Assign Sub --</option>`;
+                    allFacs.forEach(f => {
+                        let facs = extractFacultiesFromTask(task);
+                        let sel = facs.includes(f) ? 'selected' : '';
+                        if(!sel) cellHtml += `<option value="${f}">${f}</option>`;
+                    });
+                    cellHtml += `</select></div>`;
+                    html += `<td>${cellHtml}</td>`;
+                } else {
+                    html += `<td></td>`;
+                }
+            }
+            html += `</tr>`;
+        });
+        html += `</tbody></table></div>`;
+        document.getElementById('leaveTarget').innerHTML = html;
+    }
+
+    function applySingleSub(day, slotIndex, taskId, newFac) {
+        if(!newFac) return;
+        let bStates = globalData.grid[day][slotIndex].batches;
+        Object.values(bStates).forEach(b => {
+            ['ALL', 'G1', 'G2'].forEach(g => {
+                if(b[g] && b[g].id === taskId) {
+                    if(b[g].type.includes('Split') || b[g].type.includes('CoTeach')) {
+                        if(b[g].facultyG1 === document.getElementById('leaveAbsentFaculty').value) b[g].facultyG1 = newFac;
+                        else b[g].facultyG2 = newFac;
+                    } else {
+                        b[g].faculty = newFac;
+                    }
+                }
+            });
+        });
+        alert(`Assigned ${newFac} to cover slot.`);
+    }
+
+    function applyBulkLeave() {
+        let absentFac = document.getElementById('leaveAbsentFaculty').value;
+        let subFac = document.getElementById('leaveBulkSubstitute').value;
+        if(!absentFac || !subFac) return alert("Select both absent and substitute faculty.");
+        
+        days.forEach(day => {
+            for(let s = 0; s < 9; s++) {
+                let cellData = getTaskForCell('faculty', absentFac, day, s);
+                if(cellData && cellData.task) applySingleSub(day, s, cellData.task.id, subFac);
+            }
+        });
+        renderLeaveTable();
+        alert(`Successfully assigned ${subFac} to all classes for ${absentFac}.`);
+    }
+
+    function renderReports(dept) {
+        if(!globalData) return;
+        
+        let unassignedHtml = '';
+        let deptUnassigned = globalData.unassigned.filter(u => (u.dept === dept || (dept === 'ETE' && u.dept === 'COMBINED-EE/ETE')));
+        
+        if (deptUnassigned.length > 0) {
+            unassignedHtml += `<h4 style="margin-bottom:12px; color:var(--danger); font-size:16px;">⚠️ Unassigned Classes (${deptUnassigned.length})</h4>
+            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                <table class="diag-table">
+                    <thead style="position: sticky; top: 0; z-index: 1;">
+                        <tr><th>Subject</th><th>Batch</th><th>Faculty</th><th>Type</th></tr>
+                    </thead>
+                    <tbody>`;
+            deptUnassigned.forEach(u => {
+                let f = u.faculty || `${u.facultyG1} / ${u.facultyG2}`;
+                unassignedHtml += `<tr>
+                    <td style="font-weight:700;">${u.subject}</td>
+                    <td style="color:var(--text-muted);">${u.batch.map(b => b.replace(/\[.*?\] /g, '')).join(', ')}</td>
+                    <td style="font-weight:600; color:var(--primary);">${f}</td>
+                    <td><span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700;">${u.type}</span></td>
+                </tr>`;
+            });
+            unassignedHtml += `</tbody></table></div>`;
+        } else {
+             unassignedHtml += `<div style="padding: 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; color: #065f46; font-weight: 700; font-size:14px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">✅ Zero unassigned classes for ${dept}. All constraints resolved.</div>`;
+        }
+        document.getElementById('reportUnassignedTarget').innerHTML = unassignedHtml;
+
+        let vSlots = globalData.vacantSlots.filter(v => {
+            if (dept === 'ETE') return v.dept === 'ETE';
+            return v.dept === dept;
+        });
+        
+        let vCounts = {};
+        vSlots.forEach(vs => { vCounts[vs.type] = (vCounts[vs.type] || 0) + 1; });
+        
+        let vacantHtml = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">`;
+        if(Object.keys(vCounts).length === 0) vacantHtml += `<p style="padding:16px;">No vacant resources mapped to this department.</p>`;
+        for(let type in vCounts) {
+            vacantHtml += `<div class="stat-card">
+                <div class="stat-card-value">${vCounts[type]}</div>
+                <div class="stat-card-label">${type} Free Slots</div>
+            </div>`;
+        }
+        vacantHtml += `</div>`;
+
+        if(vSlots.length > 0) {
+            vacantHtml += `<h4 style="margin-bottom:12px; color:var(--text-main);">Detailed Vacant Slots</h4>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table class="diag-table">
+                    <thead style="position: sticky; top: 0; z-index: 1;">
+                        <tr><th>Day</th><th>Time</th><th>Room / Lab Name</th><th>Type</th></tr>
+                    </thead>
+                    <tbody>`;
+            vSlots.forEach(v => {
+                vacantHtml += `<tr>
+                    <td style="font-weight:600;">${v.day}</td>
+                    <td style="color:var(--text-muted);">${v.time}</td>
+                    <td style="font-weight:700; color:var(--primary);">${v.name}</td>
+                    <td><span style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">${v.type}</span></td>
+                </tr>`;
+            });
+            vacantHtml += `</tbody></table></div>`;
+        }
+
+        document.getElementById('reportVacantTarget').innerHTML = vacantHtml;
+
+        const workloads = globalData.facultyWorkloads || {};
+        let deptFacs = Object.keys(globalData.facultyDeptMap).filter(f => globalData.facultyDeptMap[f].includes(dept)).sort();
+        
+        let workloadHtml = `<table class="diag-table"><thead><tr><th>Faculty Member</th><th>Weekly Hours</th><th>Status</th></tr></thead><tbody>`;
+        if(deptFacs.length === 0) workloadHtml += `<tr><td colspan="3">No faculty found teaching in ${dept}.</td></tr>`;
+        deptFacs.forEach(fac => {
+            let hours = workloads[fac] || 0;
+            workloadHtml += `<tr><td style="font-weight:700;">${fac}</td><td style="font-weight:500; color:var(--text-muted);">${hours} Hrs</td><td><span style="color:var(--success);font-weight:700;">Active</span></td></tr>`;
+        });
+        workloadHtml += `</tbody></table>`;
+        document.getElementById('reportWorkloadTarget').innerHTML = workloadHtml;
+    }
+  </script>
+</body>
+</html>
